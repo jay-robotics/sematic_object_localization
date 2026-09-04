@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi-Robot Semantic Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/roslibjs/1.1.0/roslib.min.js"></script>
+<style>
+  :root{
+    --bg:#0A0E14;
+    --panel:#111823;
+    --panel-2:#0D141E;
+    --line:#1E2A38;
+    --cyan:#4FD8C4;
+    --cyan-dim:#2B6E64;
+    --amber:#F0A560;
+    --red:#E5626A;
+    --text:#E6EAEF;
+    --muted:#75879B;
+    --mono:'IBM Plex Mono', monospace;
+    --disp:'Space Grotesk', sans-serif;
+    --body:'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    min-height:100vh;
+    padding:12px;
+  }
+  .wrap{max-width:1500px;margin:0 auto;}
+
+  header{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:14px 18px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    margin-bottom:12px;
+    flex-wrap:wrap;
+  }
+  header h1{
+    font-family:var(--disp);
+    font-size:18px;
+    font-weight:600;
+    margin:0;
+  }
+  header p{
+    margin:2px 0 0;
+    color:var(--muted);
+    font-size:11px;
+    font-family:var(--mono);
+  }
+  .conn-summary{
+    margin-left:auto;
+    display:flex;
+    gap:10px;
+    font-family:var(--mono);
+    font-size:11px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .conn-item{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 10px;
+    border-radius:3px;
+    border:1px solid var(--line);
+    background:var(--panel-2);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .dot.ok{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+  .dot.bad{background:var(--red);box-shadow:0 0 6px var(--red);}
+  .dot.pending{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  .add-btn{
+    background:var(--panel-2);
+    border:1px dashed var(--line);
+    border-radius:3px;
+    color:var(--cyan);
+    font-family:var(--mono);
+    font-size:12px;
+    padding:6px 14px;
+    cursor:pointer;
+    transition:border-color 0.15s;
+    white-space:nowrap;
+  }
+  .add-btn:hover{border-color:var(--cyan);}
+
+  .robot-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+  @media (max-width:1100px){.robot-grid{grid-template-columns:1fr;}}
+
+  .robot-panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .robot-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 14px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--line);
+    font-family:var(--disp);
+    font-size:14px;
+    font-weight:600;
+    flex-wrap:wrap;
+  }
+  .robot-header .tag{
+    font-family:var(--mono);
+    font-size:9px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--cyan);
+    margin-left:auto;
+  }
+  .remove-btn{
+    background:transparent;
+    border:1px solid var(--red);
+    color:var(--red);
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:3px;
+    cursor:pointer;
+    font-family:var(--mono);
+  }
+
+  /* ---- Robot selector row ---- */
+  .robot-selector-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:8px 14px;
+    background:rgba(79,216,196,0.03);
+    border-bottom:1px solid var(--line);
+    align-items:center;
+  }
+  .robot-selector-row label{
+    font-family:var(--mono);
+    font-size:9px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .robot-selector-row select{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:2px;
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:11px;
+    padding:4px 8px;
+    min-width:130px;
+    cursor:pointer;
+  }
+  .robot-selector-row select:focus{outline:none;border-color:var(--cyan);}
+
+  .robot-body{padding:12px 14px;}
+
+  .cam-frame{
+    width:100%;
+    aspect-ratio:16/9;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:3px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    margin-bottom:10px;
+  }
+  .cam-frame img{width:100%;height:100%;object-fit:cover;display:block;}
+  .cam-placeholder{color:var(--muted);font-family:var(--mono);font-size:11px;text-align:center;}
+  .cam-placeholder .big{font-size:20px;display:block;margin-bottom:4px;}
+
+  .section-label{
+    font-family:var(--mono);
+    font-size:9px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--cyan);
+    margin:8px 0 6px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .obj-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto;}
+  .obj-list li{
+    padding:6px 10px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:3px;
+    cursor:pointer;
+    font-size:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    transition:border-color 0.15s, background 0.15s;
+  }
+  .obj-list li:hover{border-color:var(--cyan-dim);}
+  .obj-list li.selected{
+    border-color:var(--cyan);
+    background:rgba(79,216,196,0.08);
+  }
+  .obj-list li .sel-tag{
+    font-family:var(--mono);
+    font-size:8px;
+    color:var(--cyan);
+    opacity:0;
+  }
+  .obj-list li.selected .sel-tag{opacity:1;}
+  .empty-note{color:var(--muted);font-size:11px;font-family:var(--mono);}
+
+  .btn-row{display:flex;gap:6px;margin-top:8px;}
+  button{
+    flex:1;
+    padding:8px 0;
+    border-radius:3px;
+    border:1px solid var(--line);
+    font-family:var(--disp);
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:0.3px;
+    cursor:pointer;
+    transition:filter 0.15s, opacity 0.15s;
+  }
+  button:disabled{opacity:0.35;cursor:not-allowed;}
+  .go{background:var(--cyan);color:#08201C;border-color:var(--cyan);}
+  .go:hover:not(:disabled){filter:brightness(1.08);}
+  .stop{background:transparent;color:var(--red);border-color:var(--red);}
+  .stop:hover:not(:disabled){background:rgba(229,98,106,0.1);}
+
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-family:var(--mono);
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:3px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    margin-bottom:8px;
+  }
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .stat{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:6px 8px;
+  }
+  .stat .k{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:2px;}
+  .stat .v{font-family:var(--mono);font-size:13px;color:var(--text);}
+
+  .footer-note{
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--muted);
+    text-align:center;
+    margin-top:10px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>MULTI-ROBOT // SEMANTIC DASHBOARD</h1>
+      <p id="rosUrlLabel">ws://localhost:9090</p>
+    </div>
+    <div class="conn-summary">
+      <div class="conn-item"><span class="dot pending" id="connDot"></span><span id="connLabel">rosbridge (connecting…)</span></div>
+    </div>
+    <button class="add-btn" id="addRobotBtn">+ Add Robot Panel</button>
+  </header>
+
+  <div class="robot-grid" id="robotGrid">
+    <!-- Panels added dynamically by JS -->
+  </div>
+
+  <p class="footer-note">rosbridge_websocket must be running — ros2 launch rosbridge_server rosbridge_websocket_launch.xml</p>
+</div>
+
+<script>
+// ============================================================
+// EDIT THIS ARRAY to add/remove available robot namespaces
+// ============================================================
+const AVAILABLE_ROBOTS = ['robot1', 'robot2', 'robot3'];
+
+// ============================================================
+// Optionally, set to true to auto-discover robots from rosbridge
+// by scanning for topics matching */semantic/objects.
+// Falls back to AVAILABLE_ROBOTS if query fails or is disabled.
+// ============================================================
+const AUTO_DISCOVER_ROBOTS = false;
+
+
+// ---- 1. Shared rosbridge connection ----
+const ROSBRIDGE_URL = 'ws://localhost:9090';
+const ros = new ROSLIB.Ros({ url: ROSBRIDGE_URL });
+
+const connDot = document.getElementById('connDot');
+const connLabel = document.getElementById('connLabel');
+
+ros.on('connection', () => {
+  connDot.className = 'dot ok';
+  connLabel.textContent = 'rosbridge (connected)';
+  if (AUTO_DISCOVER_ROBOTS) discoverRobotsFromTopics();
+});
+ros.on('error', () => {
+  connDot.className = 'dot bad';
+  connLabel.textContent = 'rosbridge (disconnected)';
+});
+ros.on('close', () => {
+  connDot.className = 'dot bad';
+  connLabel.textContent = 'rosbridge (disconnected)';
+  setTimeout(() => ros.connect(ROSBRIDGE_URL), 2000);
+});
+
+// ---- 2. State color mapping ----
+const stateColor = {
+  IDLE:'', PLANNING:'pending', NAVIGATING:'ok',
+  GOAL_REACHED:'ok', GOAL_CANCELLED:'bad',
+  GOAL_FAILED:'bad', OBJECT_NOT_FOUND:'bad'
+};
+
+// ---- 3. Robot discovery (optional stretch goal) ----
+function discoverRobotsFromTopics() {
+  try {
+    const topicsService = new ROSLIB.Service({
+      ros,
+      name: '/rosapi/topics',
+      serviceType: 'rosapi/Topics'
+    });
+    const request = new ROSLIB.ServiceRequest({});
+    topicsService.callService(request, (result) => {
+      const topics = result.topics || [];
+      const namespaces = new Set();
+      const pattern = /^\/(.+?)\/semantic\/objects$/;
+      topics.forEach(t => {
+        const m = t.match(pattern);
+        if (m) namespaces.add(m[1]);
+      });
+      if (namespaces.size > 0) {
+        const sorted = Array.from(namespaces).sort();
+        // Merge with existing AVAILABLE_ROBOTS, preserving order
+        const merged = [...new Set([...AVAILABLE_ROBOTS, ...sorted])];
+        // Update the global array (in-place)
+        AVAILABLE_ROBOTS.length = 0;
+        merged.forEach(r => AVAILABLE_ROBOTS.push(r));
+        updateAllRobotSelects();
+      }
+    }, (err) => {
+      console.warn('Auto-discover failed, using hardcoded list:', err);
+    });
+  } catch (e) {
+    console.warn('Auto-discover error:', e);
+  }
+}
+
+// ---- 4. RobotPanel class ----
+// Each panel gets its own instance with isolated state.
+let nextPanelId = 0;
+
+class RobotPanel {
+  constructor(container) {
+    this.id = 'panel-' + (++nextPanelId);
+    this.container = container;
+    this.selectedRobot = null;
+    this.knownObjects = [];
+    this.selectedObject = null;
+    this.camImg = null;
+    this.subscriptions = []; // Array of { topic, subId }
+    this.goalPublisher = null;
+    this.cancelPublisher = null;
+
+    this._buildDOM();
+    this._bindEvents();
+  }
+
+  _buildDOM() {
+    const panel = document.createElement('div');
+    panel.className = 'robot-panel';
+    panel.id = this.id;
+    panel.innerHTML = `
+      <div class="robot-header">
+        <span>🤖 <span class="panel-label">Select a robot</span></span>
+        <span class="tag" id="${this.id}-stateTag">—</span>
+        <button class="remove-btn" data-panel="${this.id}">✕</button>
+      </div>
+      <div class="robot-selector-row">
+        <label>Robot:</label>
+        <select id="${this.id}-robotSelect">
+          <option value="">— select robot —</option>
+          ${AVAILABLE_ROBOTS.map(r => `<option value="${r}">${r}</option>`).join('')}
+        </select>
+      </div>
+      <div class="robot-body">
+        <div class="cam-frame" id="${this.id}-camFrame">
+          <div class="cam-placeholder"><span class="big">◎</span>select a robot to view camera feed</div>
+        </div>
+
+        <div class="section-label">Navigation Status</div>
+        <div class="status-pill">
+          <span class="dot" id="${this.id}-stateDot"></span>
+          <span id="${this.id}-stateText">—</span>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><div class="k">Distance Remaining</div><div class="v" id="${this.id}-statDist">—</div></div>
+          <div class="stat"><div class="k">ETA</div><div class="v" id="${this.id}-statEta">—</div></div>
+          <div class="stat"><div class="k">Robot X</div><div class="v" id="${this.id}-statX">—</div></div>
+          <div class="stat"><div class="k">Robot Y</div><div class="v" id="${this.id}-statY">—</div></div>
+        </div>
+
+        <div class="section-label">Detected Objects</div>
+        <ul class="obj-list" id="${this.id}-objList"></ul>
+        <p class="empty-note" id="${this.id}-emptyNote">No objects detected yet.</p>
+        <div class="btn-row">
+          <button class="go" id="${this.id}-goBtn" disabled>GO</button>
+          <button class="stop" id="${this.id}-stopBtn" disabled>STOP</button>
+        </div>
+      </div>
+    `;
+    this.container.appendChild(panel);
+    this.el = panel;
+
+    // Cache DOM references
+    this.robotSelect = document.getElementById(this.id + '-robotSelect');
+    this.stateTag = document.getElementById(this.id + '-stateTag');
+    this.stateDot = document.getElementById(this.id + '-stateDot');
+    this.stateText = document.getElementById(this.id + '-stateText');
+    this.camFrame = document.getElementById(this.id + '-camFrame');
+    this.objList = document.getElementById(this.id + '-objList');
+    this.emptyNote = document.getElementById(this.id + '-emptyNote');
+    this.goBtn = document.getElementById(this.id + '-goBtn');
+    this.stopBtn = document.getElementById(this.id + '-stopBtn');
+    this.statDist = document.getElementById(this.id + '-statDist');
+    this.statEta = document.getElementById(this.id + '-statEta');
+    this.statX = document.getElementById(this.id + '-statX');
+    this.statY = document.getElementById(this.id + '-statY');
+    this.panelLabel = panel.querySelector('.panel-label');
+    this.removeBtn = panel.querySelector('.remove-btn');
+  }
+
+  _bindEvents() {
+    // Robot selector change
+    this.robotSelect.addEventListener('change', () => {
+      this._selectRobot(this.robotSelect.value);
+    });
+
+    // GO button — publish selected object to goal_object topic
+    this.goBtn.addEventListener('click', () => {
+      if (!this.selectedObject || !this.goalPublisher) return;
+      this.goalPublisher.publish(new ROSLIB.Message({ data: this.selectedObject }));
+    });
+
+    // STOP button — publish true to cancel topic
+    this.stopBtn.addEventListener('click', () => {
+      if (!this.cancelPublisher) return;
+      this.cancelPublisher.publish(new ROSLIB.Message({ data: true }));
+    });
+
+    // Remove button
+    this.removeBtn.addEventListener('click', () => {
+      this.destroy();
+    });
+  }
+
+  _selectRobot(robotName) {
+    if (robotName === this.selectedRobot) return;
+    // Unsubscribe previous
+    this._unsubscribeAll();
+    this.selectedRobot = robotName || null;
+
+    if (!robotName) {
+      // Reset panel to placeholder state
+      this._resetPanel();
+      return;
+    }
+
+    // Update header label
+    this.panelLabel.textContent = robotName;
+    this.stateTag.textContent = '—';
+
+    // Compose topics for this robot
+    const topics = {
+      objects:    '/' + robotName + '/semantic/objects',
+      navStatus:  '/' + robotName + '/semantic/nav_status',
+      image:      '/' + robotName + '/semantic/image/compressed',
+      goalObject: '/' + robotName + '/semantic/goal_object',
+      cancel:     '/' + robotName + '/semantic/cancel'
+    };
+
+    // Reset state
+    this.knownObjects = [];
+    this.selectedObject = null;
+    this.camImg = null;
+    this._renderObjects();
+    this.goBtn.disabled = true;
+    this.stopBtn.disabled = false;
+
+    // Reset cam frame
+    this.camFrame.innerHTML = '<div class="cam-placeholder"><span class="big">◎</span>waiting for camera feed</div>';
+
+    // ---- Subscribe to /{robot}/semantic/objects ----
+    try {
+      const objTopic = new ROSLIB.Topic({
+        ros, name: topics.objects, messageType: 'std_msgs/String'
+      });
+      const objSubId = objTopic.subscribe((msg) => {
+        try {
+          this.knownObjects = [...new Set(JSON.parse(msg.data))];
+          this._renderObjects();
+        } catch (e) {
+          console.error('Bad objects payload on ' + topics.objects, e);
+        }
+      });
+      this.subscriptions.push({ topic: objTopic, subId: objSubId });
+    } catch (e) {
+      console.error('Failed to subscribe to objects topic', e);
+    }
+
+    // ---- Subscribe to /{robot}/semantic/nav_status ----
+    try {
+      const navTopic = new ROSLIB.Topic({
+        ros, name: topics.navStatus, messageType: 'std_msgs/String'
+      });
+      const navSubId = navTopic.subscribe((msg) => {
+        try {
+          const s = JSON.parse(msg.data);
+          const stateStr = (s.state || 'IDLE').replace(/_/g, ' ');
+          this.stateText.textContent = stateStr;
+          this.stateTag.textContent = stateStr;
+          this.stateDot.className = 'dot ' + (stateColor[s.state] || '');
+          this.statDist.textContent = (s.distance_remaining != null) ? s.distance_remaining.toFixed(2) + ' m' : '—';
+          this.statEta.textContent = (s.eta_seconds != null) ? s.eta_seconds.toFixed(0) + ' s' : '—';
+          this.statX.textContent = (s.x != null) ? s.x.toFixed(2) : '—';
+          this.statY.textContent = (s.y != null) ? s.y.toFixed(2) : '—';
+        } catch (e) {
+          console.error('Bad nav_status payload on ' + topics.navStatus, e);
+        }
+      });
+      this.subscriptions.push({ topic: navTopic, subId: navSubId });
+    } catch (e) {
+      console.error('Failed to subscribe to nav_status topic', e);
+    }
+
+    // ---- Subscribe to /{robot}/semantic/image/compressed ----
+    try {
+      const imgTopic = new ROSLIB.Topic({
+        ros, name: topics.image, messageType: 'sensor_msgs/CompressedImage'
+      });
+      const imgSubId = imgTopic.subscribe((msg) => {
+        if (!this.camImg) {
+          this.camFrame.innerHTML = '';
+          this.camImg = document.createElement('img');
+          this.camFrame.appendChild(this.camImg);
+        }
+        this.camImg.src = 'data:image/jpeg;base64,' + msg.data;
+      });
+      this.subscriptions.push({ topic: imgTopic, subId: imgSubId });
+    } catch (e) {
+      console.error('Failed to subscribe to image topic', e);
+    }
+
+    // ---- Publisher for /{robot}/semantic/goal_object ----
+    try {
+      this.goalPublisher = new ROSLIB.Topic({
+        ros, name: topics.goalObject, messageType: 'std_msgs/String'
+      });
+    } catch (e) {
+      console.error('Failed to setup goal publisher', e);
+    }
+
+    // ---- Publisher for /{robot}/semantic/cancel ----
+    try {
+      this.cancelPublisher = new ROSLIB.Topic({
+        ros, name: topics.cancel, messageType: 'std_msgs/Bool'
+      });
+    } catch (e) {
+      console.error('Failed to setup cancel publisher', e);
+    }
+  }
+
+  _renderObjects() {
+    this.objList.innerHTML = '';
+    this.emptyNote.style.display = this.knownObjects.length ? 'none' : 'block';
+    this.knownObjects.forEach((name) => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      if (name === this.selectedObject) li.classList.add('selected');
+      const tag = document.createElement('span');
+      tag.className = 'sel-tag';
+      tag.textContent = 'SELECTED';
+      li.appendChild(tag);
+      li.addEventListener('click', () => {
+        this.selectedObject = name;
+        this.goBtn.disabled = false;
+        this._renderObjects();
+      });
+      this.objList.appendChild(li);
+    });
+  }
+
+  _unsubscribeAll() {
+    this.subscriptions.forEach((sub) => {
+      try { sub.topic.unsubscribe(sub.subId); } catch (e) { /* ignore */ }
+    });
+    this.subscriptions = [];
+    this.goalPublisher = null;
+    this.cancelPublisher = null;
+  }
+
+  _resetPanel() {
+    this.panelLabel.textContent = 'Select a robot';
+    this.stateTag.textContent = '—';
+    this.stateDot.className = 'dot';
+    this.stateText.textContent = '—';
+    this.statDist.textContent = '—';
+    this.statEta.textContent = '—';
+    this.statX.textContent = '—';
+    this.statY.textContent = '—';
+    this.camFrame.innerHTML = '<div class="cam-placeholder"><span class="big">◎</span>select a robot to view camera feed</div>';
+    this.knownObjects = [];
+    this.selectedObject = null;
+    this.camImg = null;
+    this._renderObjects();
+    this.goBtn.disabled = true;
+    this.stopBtn.disabled = true;
+  }
+
+  // Called when AVAILABLE_ROBOTS is updated externally (auto-discovery)
+  updateRobotSelectOptions() {
+    const currentVal = this.robotSelect.value;
+    this.robotSelect.innerHTML = '<option value="">— select robot —</option>' +
+      AVAILABLE_ROBOTS.map(r => `<option value="${r}"${r === currentVal ? ' selected' : ''}>${r}</option>`).join('');
+  }
+
+  destroy() {
+    this._unsubscribeAll();
+    if (this.el && this.el.parentNode) {
+      this.el.parentNode.removeChild(this.el);
+    }
+  }
+}
+
+// Helper to update all existing panel dropdowns when robot list changes
+function updateAllRobotSelects() {
+  document.querySelectorAll('.robot-panel').forEach(panelEl => {
+    // Find the RobotPanel instance by its id
+    const id = panelEl.id;
+    // Panels are tracked in the panels array
+    const panel = panels.find(p => p.id === id);
+    if (panel) panel.updateRobotSelectOptions();
+  });
+}
+
+// ---- 5. Panel management ----
+const panels = [];
+
+function addPanel(defaultRobotName) {
+  const grid = document.getElementById('robotGrid');
+  const panel = new RobotPanel(grid);
+  panels.push(panel);
+
+  // If a default robot was specified, select it
+  if (defaultRobotName && AVAILABLE_ROBOTS.includes(defaultRobotName)) {
+    panel.robotSelect.value = defaultRobotName;
+    panel._selectRobot(defaultRobotName);
+  }
+
+  return panel;
+}
+
+// ---- 6. Auto-discover robots on connect (if enabled) ----
+// Also re-populate dropdowns if auto-discover finds additional robots
+// (called from ros.on('connection') above)
+
+// ---- 7. Add default panels ----
+// Start with robot1 and robot2 pre-selected
+addPanel('robot1');
+addPanel('robot2');
+
+// ---- 8. Add Panel button ----
+document.getElementById('addRobotBtn').addEventListener('click', () => {
+  addPanel(); // no default robot — user selects from dropdown
+});
+</script>
+</body>
+</html>
