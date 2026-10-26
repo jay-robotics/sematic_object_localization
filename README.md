@@ -6,6 +6,16 @@ A ROS 2 package that gives a TurtleBot3 (or a fleet of them) the ability to see,
 
 [![Watch the demo](https://img.youtube.com/vi/CyFAF_46Zg8/maxresdefault.jpg)](https://youtu.be/CyFAF_46Zg8)
 
+## My DIY TurtleBot
+
+<p align="center">
+  <img width="70%" alt="front" src="https://github.com/user-attachments/assets/af74a811-5fc8-496f-8e4e-a2a0e28bcad0" />
+  <img width="70%" alt="side" src="https://github.com/user-attachments/assets/b89b84fe-370c-4311-8541-b0b16f54ac22" />
+  <img width="70%" alt="side2" src="https://github.com/user-attachments/assets/9694ad78-e866-4807-b734-111e5fe8ed54" />
+  <img width="70%" alt="back" src="https://github.com/user-attachments/assets/4f439928-50c0-4767-a224-44b347462360" />
+  <img width="70%" alt="above" src="https://github.com/user-attachments/assets/d60ee4f6-c0de-446b-9f55-3a549678e082" />
+</p>
+
 ## Overview
 
 Each robot runs a synchronized camera + LiDAR pipeline:
